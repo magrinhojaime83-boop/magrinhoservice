@@ -1,4 +1,0 @@
-User-agent: *
-Allow: /
-
-Sitemap: https://magrinhojaime83-boop.github.io/magrinhoservice/sitemap.xml
