@@ -167,12 +167,6 @@ async function initPersistentAdminMenu(){
 
 initPersistentAdminMenu();
 </script>
-
-<script>
-if('serviceWorker' in navigator){
-  window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
-}
-</script>
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', async () => {
