@@ -2,17 +2,6 @@
 
 <html lang="pt-PT">
 <head>
-<script id="adminEntryRedirect">
-(function(){
-  const m = location.hash.match(/^#admin=(.+)$/);
-  if (!m) return;
-  const base = location.hostname.endsWith('github.io') ? '/magrinhoservice/' : '/';
-  if (!/\/(?:agendamento|administrador)\.html$/.test(location.pathname)) return;
-  location.replace(base + location.hash);
-})();
-</script>
-
-
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
 <meta http-equiv="Pragma" content="no-cache"/>
 <meta http-equiv="Expires" content="0"/>
@@ -145,6 +134,16 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
   .ms-admin-hour-grid{grid-template-columns:repeat(3,1fr);max-height:390px}
 }
 
+
+/* Agenda privada de agendamentos */
+.ms-bookings-list{display:grid;gap:10px}
+.ms-booking-card{border:1px solid #34383d;background:#17191c;border-radius:12px;padding:12px;display:grid;gap:7px}
+.ms-booking-main{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.ms-booking-main strong{font-size:15px;color:#fff}
+.ms-booking-date{font-weight:900;color:var(--gold2);white-space:nowrap}
+.ms-booking-meta{display:grid;gap:3px;color:#c4c7ca;font-size:12px;line-height:1.45}
+.ms-booking-card button{min-height:36px;border:1px solid rgba(247,189,22,.45);background:rgba(247,189,22,.08);color:var(--gold2);border-radius:8px;padding:0 12px;font-weight:900;cursor:pointer;justify-self:start}
+
 </style>
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"LocalBusiness","name":"MagrinhoService","url":"https://magrinhoservice.vercel.app/","telephone":"+351964826560","email":"magrinhoservice06@gmail.com","areaServed":"Elvas e arredores num raio aproximado de 30 km","address":{"@type":"PostalAddress","addressLocality":"Elvas","addressCountry":"PT"}}</script>
 </head>
@@ -209,6 +208,12 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
           <div id="adminBlockedTimes" class="ms-admin-day-hours"></div>
         </div>
       </div>
+      <div class="ms-admin-list-wrap">
+        <h3>Agenda de agendamentos</h3>
+        <div class="ms-admin-hour-legend">Visível apenas nesta área privada. Mostra os pedidos enviados pelos clientes.</div>
+        <div id="adminBookings" class="ms-bookings-list"><div class="ms-admin-empty">A carregar agenda…</div></div>
+      </div>
+
       <div class="ms-admin-actions">
         <button class="btn dark" type="button" onclick="loadAvailability(true)">Atualizar lista</button>
         <button class="btn dark" type="button" onclick="adminLogout()">Voltar ao site</button>
@@ -431,31 +436,43 @@ function buildBlockedDateRanges(dates){
   return ranges;
 }
 
-function adminFragment(){return adminAccessCode?'#admin='+encodeURIComponent(adminAccessCode):'';}
 function rewriteAdminLinks(){
-  if(!adminAccessCode)return;
-  const fragment=adminFragment();
-  document.querySelectorAll('a[href]').forEach(a=>{
+  if(!adminUnlocked || !adminAccessCode)return;
+  const hash='#admin='+encodeURIComponent(adminAccessCode);
+  document.querySelectorAll('.site-header nav a[href], .site-header .brand[href]').forEach(a=>{
     const raw=a.getAttribute('href')||'';
-    if(!raw || raw.startsWith('http:') || raw.startsWith('https:') || raw.startsWith('mailto:') ||
-       raw.startsWith('tel:') || raw.startsWith('javascript:') || raw.startsWith('#'))return;
+    if(!raw || raw.startsWith('http:') || raw.startsWith('https:') || raw.startsWith('mailto:') || raw.startsWith('tel:') || raw.startsWith('#'))return;
     try{
-      const u=new URL(raw,location.href); if(u.origin!==location.origin)return;
-      u.searchParams.delete('adminmode'); u.hash=fragment;
-      const relative=u.pathname.split('/').pop()||'index.html';
-      a.setAttribute('href',relative+u.search+u.hash);
+      const u=new URL(raw,location.href);
+      if(u.origin!==location.origin)return;
+      const relative=u.pathname.split('/').pop() || 'index.html';
+      a.setAttribute('href',relative+u.search+hash);
     }catch(e){}
   });
 }
+
 async function initAdminAccess(){
-  adminUnlocked=false; adminAccessCode='';
-  const match=location.hash.match(/^#admin=(.+)$/);
-  if(!match){location.replace('index.html');return false;}
-  let code=''; try{code=decodeURIComponent(match[1]);}catch(e){code='';}
-  if(!code || await sha256Text(code)!==ADMIN_ACCESS_HASH){location.replace('index.html');return false;}
-  adminUnlocked=true; adminAccessCode=code; rewriteAdminLinks(); return true;
+  adminUnlocked=false;
+  adminAccessCode='';
+  const secretMatch=location.hash.match(/^#admin=(.+)$/);
+  if(secretMatch){
+    let code='';
+    try{code=decodeURIComponent(secretMatch[1]);}catch(e){code='';}
+    if(code && await sha256Text(code)===ADMIN_ACCESS_HASH){
+      adminUnlocked=true;
+      adminAccessCode=code;
+      rewriteAdminLinks();
+      return true;
+    }
+  }
+  location.replace('index.html');
+  return false;
 }
-function adminLogout(){location.href=(adminUnlocked&&adminAccessCode)?'index.html'+adminFragment():'index.html';}
+
+function adminLogout(){
+  if(adminUnlocked && adminAccessCode)location.href='index.html#admin='+encodeURIComponent(adminAccessCode);
+  else location.href='index.html';
+}
 
 async function fetchAvailability(){
   const res=await fetch(AVAILABILITY_API+'?v='+Date.now(),{cache:'no-store',mode:'cors',credentials:'omit'});
@@ -759,6 +776,65 @@ async function adminUnblockDateRange(from,to){
   }
 }
 
+let adminBookings=[];
+let bookingsRequest=null;
+
+function escapeHtml(value){
+  return String(value??'').replace(/[&<>'"]/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[ch]));
+}
+
+function renderAdminBookings(){
+  const box=document.getElementById('adminBookings');
+  if(!box)return;
+  if(!adminBookings.length){box.innerHTML='<div class="ms-admin-empty">Ainda não existem agendamentos.</div>';return;}
+  box.innerHTML=adminBookings.map(b=>{
+    const date=b.date?formatDateLabel(b.date):'Data a combinar';
+    const time=b.time||'Hora a combinar';
+    return `<div class="ms-booking-card">
+      <div class="ms-booking-main"><strong>${escapeHtml(b.name||'Cliente')}</strong><span class="ms-booking-date">${escapeHtml(date)} · ${escapeHtml(time)}</span></div>
+      <div class="ms-booking-meta">
+        <span><b>Serviço:</b> ${escapeHtml(b.service||'—')}</span>
+        <span><b>Contacto:</b> ${escapeHtml(b.contact||'—')}</span>
+        <span><b>Localidade:</b> ${escapeHtml(b.locality||'—')}</span>
+        ${b.address?`<span><b>Morada:</b> ${escapeHtml(b.address)}</span>`:''}
+        ${b.description?`<span><b>Descrição:</b> ${escapeHtml(b.description)}</span>`:''}
+      </div>
+      <button type="button" onclick="deleteAdminBooking(${Number(b.id)})">Eliminar agendamento</button>
+    </div>`;
+  }).join('');
+}
+
+async function loadAdminBookings(){
+  if(!adminUnlocked || !adminAccessCode)return false;
+  if(bookingsRequest)return bookingsRequest;
+  bookingsRequest=(async()=>{
+    try{
+      const res=await fetch(AVAILABILITY_API+'?action=bookings&v='+Date.now(),{cache:'no-store',headers:{'x-admin-code':adminAccessCode}});
+      if(!res.ok)throw new Error('Não foi possível carregar a agenda.');
+      const data=await res.json();
+      adminBookings=Array.isArray(data.bookings)?data.bookings:[];
+      renderAdminBookings();
+      return true;
+    }catch(e){
+      console.error(e);
+      const box=document.getElementById('adminBookings');
+      if(box)box.innerHTML='<div class="ms-admin-empty">Não foi possível carregar a agenda.</div>';
+      return false;
+    }finally{bookingsRequest=null;}
+  })();
+  return bookingsRequest;
+}
+
+async function deleteAdminBooking(id){
+  if(!adminUnlocked || !adminAccessCode)return;
+  if(!confirm('Eliminar este agendamento da agenda?'))return;
+  try{
+    const res=await fetch(AVAILABILITY_API+'?action=delete-booking',{method:'POST',headers:{'Content-Type':'application/json','x-admin-code':adminAccessCode},body:JSON.stringify({id})});
+    if(!res.ok)throw new Error('Falha ao eliminar.');
+    await loadAdminBookings();
+  }catch(e){console.error(e);alert('Não foi possível eliminar o agendamento.');}
+}
+
 (async()=>{
   if(await initAdminAccess()){
     const from=document.getElementById('adminHoursDateFrom');
@@ -767,8 +843,23 @@ async function adminUnblockDateRange(from,to){
     if(from && !from.value)from.value=today;
     if(to && !to.value)to.value=today;
     await loadAvailability();
+    await loadAdminBookings();
   }
 })();
+
+document.addEventListener('visibilitychange',()=>{
+  if(!document.hidden && adminUnlocked){
+    loadAvailability();
+    loadAdminBookings();
+  }
+});
+setInterval(()=>{
+  if(!document.hidden && adminUnlocked){
+    loadAvailability();
+    loadAdminBookings();
+  }
+},2000);
+
 </script>
 
 </body></html>

@@ -2,17 +2,6 @@
 
 <html lang="pt-PT">
 <head>
-<script id="adminEntryRedirect">
-(function(){
-  const m = location.hash.match(/^#admin=(.+)$/);
-  if (!m) return;
-  const base = location.hostname.endsWith('github.io') ? '/magrinhoservice/' : '/';
-  if (!/\/(?:agendamento|administrador)\.html$/.test(location.pathname)) return;
-  location.replace(base + location.hash);
-})();
-</script>
-
-
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
 <meta http-equiv="Pragma" content="no-cache"/>
 <meta http-equiv="Expires" content="0"/>
@@ -306,47 +295,59 @@ function mergeTimeRanges(ranges){
   return merged;
 }
 
-function adminFragment(){return adminAccessCode?'#admin='+encodeURIComponent(adminAccessCode):'';}
 function updateAdminNav(){
-  const link=document.getElementById('msAdminNavLink'); if(!link)return;
+  const link=document.getElementById('msAdminNavLink');
+  if(!link)return;
+  if(!adminUnlocked){
+    link.style.display='none';
+    const nav=link.closest('nav');
+    if(nav)nav.classList.remove('admin-visible');
+    return;
+  }
+  link.style.display='';
+  link.href='administrador.html#admin='+encodeURIComponent(adminAccessCode);
   const nav=link.closest('nav');
-  if(!adminUnlocked || !adminAccessCode){link.style.display='none';if(nav)nav.classList.remove('admin-visible');return;}
-  link.style.display=''; link.href='administrador.html'+adminFragment();
-  if(nav)nav.classList.add('admin-visible'); link.onclick=null;
+  if(nav)nav.classList.add('admin-visible');
 }
+
 function rewriteAdminLinks(){
-  if(!adminAccessCode)return;
-  const fragment=adminFragment();
+  if(!adminUnlocked || !adminAccessCode)return;
+  const hash='#admin='+encodeURIComponent(adminAccessCode);
   document.querySelectorAll('a[href]').forEach(a=>{
-    if(a.id==='msAdminNavLink')return;
     const raw=a.getAttribute('href')||'';
-    if(!raw || raw.startsWith('http:') || raw.startsWith('https:') || raw.startsWith('mailto:') ||
-       raw.startsWith('tel:') || raw.startsWith('javascript:'))return;
-    if(raw.startsWith('#')){
-      a.addEventListener('click',function(e){
-        const id=raw.slice(1), target=id?document.getElementById(id):null;
-        if(target){e.preventDefault();target.scrollIntoView({behavior:'smooth',block:'start'});}
-      });
-      return;
-    }
+    if(!raw || raw.startsWith('http:') || raw.startsWith('https:') || raw.startsWith('mailto:') || raw.startsWith('tel:') || raw.startsWith('#'))return;
     try{
-      const u=new URL(raw,location.href); if(u.origin!==location.origin)return;
-      u.searchParams.delete('adminmode'); u.hash=fragment;
-      const relative=u.pathname.split('/').pop()||'index.html';
-      a.setAttribute('href',relative+u.search+u.hash);
+      const u=new URL(raw,location.href);
+      if(u.origin!==location.origin)return;
+      const relative=u.pathname.split('/').pop() || 'index.html';
+      a.setAttribute('href',relative+u.search+hash);
     }catch(e){}
   });
 }
+
 async function initAdminAccess(){
-  adminUnlocked=false; adminAccessCode='';
-  const match=location.hash.match(/^#admin=(.+)$/);
-  if(match){
-    let code=''; try{code=decodeURIComponent(match[1]);}catch(e){code='';}
-    if(code && await sha256Text(code)===ADMIN_ACCESS_HASH){adminUnlocked=true;adminAccessCode=code;rewriteAdminLinks();}
+  adminUnlocked=false;
+  adminAccessCode='';
+  const secretMatch=location.hash.match(/^#admin=(.+)$/);
+  if(secretMatch){
+    let code='';
+    try{code=decodeURIComponent(secretMatch[1]);}catch(e){code='';}
+    if(code && await sha256Text(code)===ADMIN_ACCESS_HASH){
+      adminUnlocked=true;
+      adminAccessCode=code;
+      rewriteAdminLinks();
+    }
   }
   updateAdminNav();
 }
-function adminLogout(){location.href=(adminUnlocked&&adminAccessCode)?'index.html'+adminFragment():'index.html';}
+
+function adminLogout(){
+  if(adminUnlocked && adminAccessCode){
+    location.href='index.html#admin='+encodeURIComponent(adminAccessCode);
+  }else{
+    location.href='index.html';
+  }
+}
 
 async function fetchAvailability(){
   const res=await fetch(AVAILABILITY_API+'?v='+Date.now(),{
@@ -777,28 +778,38 @@ async function selectBookingTime(value){
 }
 
 const bookingForm=document.getElementById('bookingForm');
+let bookingSaving=false;
+
+async function saveServiceBooking(){
+  const fd=new FormData(bookingForm);
+  const payload={
+    name:String(fd.get('Nome')||''),
+    contact:String(fd.get('Contacto')||''),
+    service:String(fd.get('Serviço')||''),
+    date:String(fd.get('Data')||''),
+    time:String(fd.get('Hora')||''),
+    locality:String(fd.get('Localidade')||''),
+    address:String(fd.get('Morada')||''),
+    description:String(fd.get('Descrição')||'')
+  };
+  const res=await fetch(AVAILABILITY_API+'?action=booking',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+  if(!res.ok)throw new Error('Não foi possível guardar o agendamento.');
+  const data=await res.json();
+  if(!data || data.ok!==true)throw new Error('Resposta inválida ao guardar o agendamento.');
+}
 
 bookingForm.addEventListener('submit',async e=>{
   e.preventDefault();
+  if(bookingSaving)return;
 
   const selectedDate=document.getElementById('bookingDate').value;
   const selectedTime=document.getElementById('bookingTime').value;
 
-  if(!selectedDate){
-    alert('Escolha a data pretendida.');
-    return;
-  }
-
-  if(!selectedTime){
-    alert('Escolha a hora pretendida.');
-    return;
-  }
+  if(!selectedDate){alert('Escolha a data pretendida.');return;}
+  if(!selectedTime){alert('Escolha a hora pretendida.');return;}
 
   const synced=await loadAvailability();
-  if(!synced){
-    alert('Não foi possível confirmar a disponibilidade. Tente novamente dentro de instantes.');
-    return;
-  }
+  if(!synced){alert('Não foi possível confirmar a disponibilidade. Tente novamente dentro de instantes.');return;}
 
   if(isDateBlocked(selectedDate)){
     document.getElementById('bookingDate').value='';
@@ -814,7 +825,18 @@ bookingForm.addEventListener('submit',async e=>{
     return;
   }
 
-  bookingForm.submit();
+  bookingSaving=true;
+  const submitButton=bookingForm.querySelector('button[type="submit"]');
+  if(submitButton)submitButton.disabled=true;
+  try{
+    await saveServiceBooking();
+    bookingForm.submit();
+  }catch(err){
+    console.error(err);
+    bookingSaving=false;
+    if(submitButton)submitButton.disabled=false;
+    alert('Não foi possível guardar o agendamento na agenda. Tente novamente.');
+  }
 });
 
 document.addEventListener('click',e=>{
