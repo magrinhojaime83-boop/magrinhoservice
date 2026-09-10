@@ -128,13 +128,21 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"LocalBusiness","name":"MagrinhoService","url":"https://magrinhoservice.vercel.app/","telephone":"+351964826560","email":"magrinhoservice06@gmail.com","areaServed":"Elvas e arredores num raio aproximado de 30 km","address":{"@type":"PostalAddress","addressLocality":"Elvas","addressCountry":"PT"}}</script>
 
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="icon" href="favicon.ico">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
 <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
-<meta name="theme-color" content="#090a0b">
+<meta name="theme-color" content="#111315">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="MagrinhoService">
+
+<script>
+(function(){
+  if(location.hostname.endsWith('github.io')){
+    location.replace('https://magrinhoservice.vercel.app/agendamento.html'+(location.search||'')+(location.hash||''));
+  }
+})();
+</script>
 
 </head>
 <body>
@@ -188,7 +196,7 @@ const wanted=new URLSearchParams(window.location.search).get('servico');
 if(wanted && [...serviceSelect.options].some(o=>o.value===wanted || o.text===wanted)){serviceSelect.value=wanted;updateWeld();}
 
 const AVAILABILITY_API='https://iotnbkcifxswoicgjhew.supabase.co/functions/v1/magrinhoservice-availability';
-const BOOKINGS_API='https://iotnbkcifxswoicgjhew.supabase.co/functions/v1/magrinhoservice-bookings';
+const BOOKING_API='https://iotnbkcifxswoicgjhew.supabase.co/functions/v1/magrinhoservice-bookings';
 const ADMIN_ACCESS_HASH='8aff127e219d4b26bafc8f8c45f55f030938dbc5fe799873cf18fc95a4aec5b1';
 const MS_ADMIN_SESSION_KEY='magrinhoservice_admin_code';
 
@@ -367,7 +375,7 @@ async function initAdminAccess(){
     try{code=decodeURIComponent(secretMatch[1]);}catch(e){code='';}
 
     if(code && await sha256Text(code)===ADMIN_ACCESS_HASH){
-      sessionStorage.setItem(MS_ADMIN_SESSION_KEY,code);
+      localStorage.setItem(MS_ADMIN_SESSION_KEY,code);
 
       const u=new URL(location.href);
       u.hash='';
@@ -377,7 +385,7 @@ async function initAdminAccess(){
       code='';
     }
   }else{
-    code=sessionStorage.getItem(MS_ADMIN_SESSION_KEY)||'';
+    code=localStorage.getItem(MS_ADMIN_SESSION_KEY)||'';
     if(code && await sha256Text(code)===ADMIN_ACCESS_HASH){
       const params=new URLSearchParams(location.search);
       if(params.get('adminmode')!=='1'){
@@ -403,7 +411,7 @@ async function initAdminAccess(){
 function adminLogout(){
   adminUnlocked=false;
   adminAccessCode='';
-  sessionStorage.removeItem(MS_ADMIN_SESSION_KEY);
+  localStorage.removeItem(MS_ADMIN_SESSION_KEY);
 
   updateAdminNav();
 
@@ -841,23 +849,22 @@ async function selectBookingTime(value){
   renderTimeSlots();
 }
 
-const bookingForm=document.getElementById('bookingForm');
 
-
-async function saveBookingToAgenda(){
-  const fd=new FormData(bookingForm);
+async function saveBookingToPrivateAgenda(){
+  const form=document.getElementById('bookingForm');
+  const fd=new FormData(form);
   const payload={
-    name:String(fd.get('Nome')||'').trim(),
+    clientName:String(fd.get('Nome')||'').trim(),
     contact:String(fd.get('Contacto')||'').trim(),
     service:String(fd.get('Serviço')||'').trim(),
-    date:String(document.getElementById('bookingDate').value||''),
-    time:String(document.getElementById('bookingTime').value||''),
-    location:String(fd.get('Localidade')||'').trim(),
-    address:String(fd.get('Morada')||'').trim(),
+    bookingDate:String(fd.get('Data')||'').trim(),
+    bookingTime:String(fd.get('Hora')||'').trim(),
+    locality:String(fd.get('Localidade')||'').trim(),
+    address:String(fd.get('Morada')||'').trim()||null,
     description:String(fd.get('Descrição')||'').trim()
   };
 
-  const res=await fetch(BOOKINGS_API,{
+  const res=await fetch(BOOKING_API,{
     method:'POST',
     mode:'cors',
     credentials:'omit',
@@ -865,9 +872,18 @@ async function saveBookingToAgenda(){
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify(payload)
   });
-  if(!res.ok)throw new Error('booking save failed');
-  return res.json();
+
+  if(!res.ok){
+    const data=await res.json().catch(()=>({}));
+    const err=new Error(data.error||'booking_save_failed');
+    err.code=data.error||'booking_save_failed';
+    throw err;
+  }
+  return true;
 }
+
+
+const bookingForm=document.getElementById('bookingForm');
 
 bookingForm.addEventListener('submit',async e=>{
   e.preventDefault();
@@ -905,20 +921,24 @@ bookingForm.addEventListener('submit',async e=>{
     return;
   }
 
-  if(bookingForm.dataset.sending==='1')return;
-  const submit=bookingForm.querySelector('button[type="submit"]');
-  bookingForm.dataset.sending='1';
-  if(submit)submit.disabled=true;
+  const submitButton=bookingForm.querySelector('button[type="submit"]');
+  if(submitButton)submitButton.disabled=true;
 
   try{
-    await saveBookingToAgenda();
-    bookingForm.submit();
+    await saveBookingToPrivateAgenda();
   }catch(err){
-    console.error('Erro ao guardar agendamento',err);
-    alert('Não foi possível guardar o agendamento na agenda. Tente novamente.');
-    bookingForm.dataset.sending='';
-    if(submit)submit.disabled=false;
+    console.error(err);
+    if(err && (err.code==='date_unavailable' || err.code==='time_unavailable')){
+      await loadAvailability();
+      alert('Essa data ou hora acabou de ficar indisponível. Escolha outra.');
+    }else{
+      alert('Não foi possível guardar o agendamento na agenda. Tente novamente.');
+    }
+    if(submitButton)submitButton.disabled=false;
+    return;
   }
+
+  bookingForm.submit();
 });
 
 document.addEventListener('click',e=>{
@@ -940,5 +960,10 @@ setInterval(()=>{if(!document.hidden)loadAvailability();},2000);
 
 initAdminAccess();
 loadAvailability();
+</script>
+<script>
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+}
 </script>
 </body></html>

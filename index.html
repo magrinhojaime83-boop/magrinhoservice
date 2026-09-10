@@ -52,13 +52,21 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"LocalBusiness","name":"MagrinhoService","url":"https://magrinhoservice.vercel.app/","telephone":"+351964826560","email":"magrinhoservice06@gmail.com","areaServed":"Elvas e arredores num raio aproximado de 30 km","address":{"@type":"PostalAddress","addressLocality":"Elvas","addressCountry":"PT"}}</script>
 
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="icon" href="favicon.ico">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
 <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
-<meta name="theme-color" content="#090a0b">
+<meta name="theme-color" content="#111315">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="MagrinhoService">
+
+<script>
+(function(){
+  if(location.hostname.endsWith('github.io')){
+    location.replace('https://magrinhoservice.vercel.app/'+(location.search||'')+(location.hash||''));
+  }
+})();
+</script>
 
 </head>
 <body>
@@ -113,7 +121,7 @@ async function msResolveAdminCode(){
   if(secretMatch){
     try{ code=decodeURIComponent(secretMatch[1]); }catch(e){ code=''; }
     if(code && await msAdminHash(code)===MS_ADMIN_PERSIST_HASH){
-      sessionStorage.setItem(MS_ADMIN_SESSION_KEY,code);
+      localStorage.setItem(MS_ADMIN_SESSION_KEY,code);
 
       const u=new URL(location.href);
       u.hash='';
@@ -125,7 +133,7 @@ async function msResolveAdminCode(){
   }
 
   const params=new URLSearchParams(location.search);
-  code=sessionStorage.getItem(MS_ADMIN_SESSION_KEY)||'';
+  code=localStorage.getItem(MS_ADMIN_SESSION_KEY)||'';
 
   if(code && await msAdminHash(code)===MS_ADMIN_PERSIST_HASH){
     if(params.get('adminmode')!=='1'){
@@ -160,4 +168,9 @@ async function initPersistentAdminMenu(){
 initPersistentAdminMenu();
 </script>
 
+<script>
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+}
+</script>
 </body></html>
