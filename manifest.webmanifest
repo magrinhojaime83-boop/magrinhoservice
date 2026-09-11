@@ -1,4 +1,5 @@
 {
+  "id": "/",
   "name": "MagrinhoService",
   "short_name": "MagrinhoService",
   "start_url": "/",
@@ -6,6 +7,7 @@
   "display": "standalone",
   "background_color": "#070809",
   "theme_color": "#070809",
+  "prefer_related_applications": false,
   "icons": [
     {
       "src": "/app-icon-192.png",
