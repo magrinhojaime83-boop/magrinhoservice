@@ -5,14 +5,29 @@
 /* Ajustes finais: PC + telemóvel, sem alterar a identidade visual */
 a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid var(--gold);outline-offset:3px}
 @media(max-width:430px){.wrap{width:min(100% - 22px,1180px)}nav{gap:5px}nav a{font-size:11px}.brand{font-size:18px}h1{font-size:clamp(32px,10vw,44px)}.lead{font-size:16px}.value{padding:12px 10px}.value strong{font-size:13px}.value small{font-size:11px}}
-</style>
-<link rel="manifest" href="manifest.webmanifest">
-<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
-<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
-<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
-<meta name="application-name" content="MagrinhoService">
-<meta name="apple-mobile-web-app-title" content="MagrinhoService">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="mobile-web-app-capable" content="yes">
 
+/* Interface responsiva limpa — PC mantém menu horizontal; telemóvel usa menu de 3 traços */
+html,body{max-width:100%;overflow-x:hidden}img{max-width:100%}.site-header,.hero,.hero-intro,.section,.footer,main{width:100%;max-width:100%}.wrap{max-width:1180px}.nav>*{min-width:0}
+.mobile-menu-toggle{display:none;width:48px;height:48px;border:1px solid rgba(247,189,22,.42);border-radius:11px;background:#151719;align-items:center;justify-content:center;flex-direction:column;gap:5px;padding:0;cursor:pointer}
+.mobile-menu-toggle span{display:block;width:22px;height:2px;background:var(--gold);border-radius:2px}
+@media(max-width:760px){
+  html{scroll-padding-top:74px!important}body{width:100%!important;min-width:0!important;zoom:1!important}
+  .wrap{width:calc(100% - 24px)!important;max-width:100%!important;margin-left:auto!important;margin-right:auto!important}
+  .site-header .nav{position:relative;min-height:70px!important;display:flex!important;flex-direction:row!important;align-items:center!important;justify-content:space-between!important;gap:12px!important;padding:8px 0!important}
+  .site-header .brand{font-size:18px!important;min-width:0!important;white-space:nowrap}.site-header .brand img{width:48px!important;height:48px!important;flex:0 0 48px}
+  .mobile-menu-toggle{display:flex!important;flex:0 0 48px}
+  .site-header nav{display:none!important;position:absolute!important;top:calc(100% + 1px)!important;left:0!important;right:0!important;width:100%!important;background:#0d0f11!important;border:1px solid #30343a!important;border-top:2px solid var(--gold)!important;border-radius:0 0 14px 14px!important;padding:10px!important;box-shadow:0 18px 38px rgba(0,0,0,.45)!important;z-index:80!important;flex-direction:column!important;align-items:stretch!important;gap:4px!important}
+  .site-header nav.mobile-open{display:flex!important}.site-header nav a{display:block!important;width:100%!important;padding:12px 10px!important;border:0!important;border-radius:8px!important;font-size:14px!important}.site-header nav a:hover{background:#1a1d20!important;color:var(--gold)!important}
+  .hero-media{width:100%!important;min-height:0!important;aspect-ratio:16/9!important;background-size:contain!important;background-position:center!important;background-repeat:no-repeat!important}
+  .hero-intro-grid{display:flex!important;flex-direction:column!important;width:100%!important;max-width:100%!important;gap:22px!important;padding:26px 0!important}.hero-intro-grid>*{width:100%!important;min-width:0!important}
+  .value-row{width:100%!important;grid-template-columns:1fr 1fr!important}.actions{width:100%!important}.actions .btn,.wa-primary,.ig-primary{width:100%!important;max-width:100%!important}
+  .services,.booking-layout,.contact-grid,.form-grid{grid-template-columns:1fr!important}.full{grid-column:1!important}.section{padding:42px 0!important}.section-head{display:block!important}.section-head p{margin-top:12px!important}
+  h1{font-size:clamp(32px,10vw,44px)!important}.lead{font-size:16px!important}.service-card img{height:auto!important;aspect-ratio:16/10!important;object-fit:contain!important;background:#0a0b0c!important}
+}
+@media(max-width:420px){.value-row{grid-template-columns:1fr 1fr!important}.brand span{overflow:hidden;text-overflow:ellipsis}}
+
+</style><link rel="icon" type="image/png" href="favicon.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="manifest" href="site.webmanifest">
+<meta name="theme-color" content="#070809">
 </head><body><div class="box"><h1>Pedido enviado ✅</h1><p>Obrigado. Recebi o seu pedido e entrarei em contacto consigo assim que possível.</p><a class="btn" href="index.html">Voltar ao site</a><a class="btn wa" href="https://wa.me/351964826560?text=Ol%C3%A1%21%20Gostaria%20de%20esclarecer%20uma%20d%C3%BAvida%20sobre%20os%20servi%C3%A7os%20da%20Magrinhoservice.">WhatsApp</a></div></body></html>
